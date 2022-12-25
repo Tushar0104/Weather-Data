@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from cityweather.serializer import *
+from django.shortcuts import render
 import requests
 
 
@@ -52,7 +53,39 @@ def authenticate_user(request):
             return Response({"code":300, "message": "Invalid username or password"})
         user = weatherUser.objects.filter(user_name=username, password=password)
         if user.count():
-            return Response({"code":200, "message": "Successfull"})
+            city_obj = city.objects.filter(id_disable=False)
+            print(f" {city_obj.count()}")
+            weatherlist = list()
+            for x in city_obj:
+                print(f"adsffsssf")
+                lat = x.latitude
+                long = x.longitude
+                url = f'https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={long}&appid=2997a532492c8e3520c064708bd8dc3a'
+                result = requests.get(url).json()
+                print(f"asdfv {result}")
+                weatherData.objects.update_or_create(city= x.name,defaults=dict(
+                    weather = result['weather'][0]['main'],
+                    description = result['weather'][0]['description'],
+                    temperature = result['main']['temp'],
+                    min_temperature = result['main']['temp_min'],
+                    max_temperature = result['main']['temp_max'],
+                    pressure = result['main']['pressure'],
+                    humidity = result['main']['humidity'],
+                    wind_speed = result['wind']['speed']
+                ))
+                weatherobj = dict(
+                    name = result['weather'][0]['main'],
+                    temp = result['main']['temp'],
+                    humidity = result['main']['humidity'],
+                    wind = result['wind']['speed'],
+                    description = result['weather'][0]['description'],
+                    icon = result['weather'][0]['icon'],
+                    city = x.name,
+                )
+                weatherlist.append(weatherobj)
+                
+            return render(request, 'home/index.html', {'city_weather_list': weatherlist})
+
         else:
             return Response({"code":300, "message": "Invalid username or password"})
     except Exception as e:
